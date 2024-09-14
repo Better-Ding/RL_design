@@ -81,7 +81,5 @@ class Surrogate:
         # if exceed 150, reduce the reward
         if next_state_pred_mean > self.target:
             delayed_reward -= (next_state_pred_mean - self.target)
-        elif next_state_pred_mean < self.target:
-            delayed_reward -= (self.target - next_state_pred_mean)
 
         return Transition(current_state, action, delayed_reward, next_state)
