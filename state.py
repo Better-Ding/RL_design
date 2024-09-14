@@ -6,6 +6,7 @@
 """
 import random
 from copy import deepcopy
+from arguments import *
 
 
 class State:
@@ -53,12 +54,13 @@ class State:
                       episode_count = 1 ---> GelMA ----> 5 - 20
                       episode_count = 2 ---> Shear Rate(after mapping) ----> 1 - 25
         """
+        rand_idx = random.randint(0, ACTIONS_COUNT-1)
         if self.episode_count == 0:
-            action = round(random.uniform(0.25, 1.5), 3)
+            action = ACTIONS_HAMA[rand_idx]
         elif self.episode_count == 1:
-            action = round(random.uniform(5, 20), 3)
+            action = ACTIONS_GELMA[rand_idx]
         elif self.episode_count == 2:
-            action = round(random.uniform(1, 25), 3)
+            action = ACTIONS_SHEAR_RATE[rand_idx]
         else:
             raise Exception("Wrong episode count")
         return action
