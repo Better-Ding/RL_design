@@ -7,10 +7,12 @@
 from collections import namedtuple
 
 import numpy as np
+import torch
 
 # General data structure definition
 Transition = namedtuple('Transition', ('current_state', 'action', 'delayed_reward', 'next_state'))
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 """
 state.py
