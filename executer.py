@@ -34,10 +34,10 @@ def execute():
 
     # -------------------------------------------------------------------------
     # train DQN agent
-    # for _ in range(proposition_logs):
-    #     # set need_training explicitly
-    #     # train DQN with desired epochs
-    #     agnt.train(training_epochs=training_epochs // proposition_logs)
+    for _ in range(proposition_logs):
+        # set need_training explicitly
+        # train DQN with desired epochs
+        agnt.train(training_epochs=training_epochs // proposition_logs)
 
 
 if __name__ == '__main__':

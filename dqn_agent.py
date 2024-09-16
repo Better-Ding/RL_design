@@ -53,11 +53,8 @@ class DQN_AGENT:
         if np.random.rand() < epsilon:
             return current_state.generate_random_action()
         else:
-            # return self.greedy_select(current_state)
-            state = torch.FloatTensor(np.array([current_state.get_feature()])).to(self.device)
-            print(self.__policy_network(state)[0].argmax())
-
-            return self.__policy_network(state).argmax().item()
+            # greedy selection
+            return self.greedy_select(current_state)
 
     def greedy_select(self, current_state):
         """
@@ -66,9 +63,18 @@ class DQN_AGENT:
         """
         self.__policy_network.eval()
         with torch.no_grad():
-            current_state_rl_feature = torch.tensor(current_state.get_feature()).float()
+            current_state_rl_feature = torch.tensor(current_state.get_feature()).float().to(device)
+            q_values = self.__policy_network(current_state_rl_feature)
+            action_index = torch.argmax(q_values).item()
+            action = current_state.select_action_by_idx(action_index)
+            return action
 
     def train(self, training_epochs):
+        """
+        Train the model and calculate the loss and Q value
+        :param training_epochs
+        :return:
+        """
         # if a pre-trainned model does not exists
         for _ in range(training_epochs):
             # self.__training_epoch += 1
@@ -86,16 +92,18 @@ class DQN_AGENT:
                 '''
                 # self.__training_step += 1
                 action = self.select_action(current_state)
-                # print(action)
                 next_state = State(previous_state=current_state, action=action)
                 trainsition = self.surrogate.pack_transition(current_state, action, next_state)
-                # print(trainsition)
                 self.replay_memory.push(trainsition)
                 current_state = next_state
-                loss, total_q = self.experience_replay()
+                '''
+                    Calculate the loss and Q values
+                '''
+                # loss, total_q = self.experience_replay()
 
     def experience_replay(self):
         state, action, reward, next_state = self.replay_memory.sample(self.batch_size)
+        # sample_batch = self.replay_memory.sample(self.__sample_batch_size)
         # print(state)
         # print("=========================")
         # print(action)

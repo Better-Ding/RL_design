@@ -51,8 +51,8 @@ class State:
             Generate one random action that can be applied to this state
 
             @output:  episode_count = 0 ---> HAMA ---> 0.25 - 1.5
-                      episode_count = 1 ---> GelMA ----> 5 - 20
-                      episode_count = 2 ---> Shear Rate(after mapping) ----> 1 - 25
+                      episode_count = 1 ---> GelMA ----> 5 - 17.5
+                      episode_count = 2 ---> Shear Rate(after mapping) ----> 0 - 25
         """
         rand_idx = random.randint(0, ACTIONS_COUNT-1)
         if self.episode_count == 0:
@@ -61,6 +61,22 @@ class State:
             action = ACTIONS_GELMA[rand_idx]
         elif self.episode_count == 2:
             action = ACTIONS_SHEAR_RATE[rand_idx]
+        else:
+            raise Exception("Wrong episode count")
+        return action
+
+    def select_action_by_idx(self, idx):
+        """
+        select action by index provided by Policy Network
+        :param idx: action index
+        :return: action
+        """
+        if self.episode_count == 0:
+            action = ACTIONS_HAMA[idx]
+        elif self.episode_count == 1:
+            action = ACTIONS_GELMA[idx]
+        elif self.episode_count == 2:
+            action = ACTIONS_SHEAR_RATE[idx]
         else:
             raise Exception("Wrong episode count")
         return action
