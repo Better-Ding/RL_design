@@ -7,7 +7,8 @@
 from dqn_agent import DQN_AGENT
 from replay_buffer import ReplayBuffer
 from surrogate import Surrogate
-
+import sys
+from tqdm import * 
 
 def execute():
     # -------------------------------------------------------------------------
@@ -34,7 +35,7 @@ def execute():
 
     # -------------------------------------------------------------------------
     # train DQN agent
-    for _ in range(proposition_logs):
+    for _ in tqdm(range(proposition_logs), file=sys.stdout):
         # set need_training explicitly
         # train DQN with desired epochs
         agnt.train(training_epochs=training_epochs // proposition_logs)

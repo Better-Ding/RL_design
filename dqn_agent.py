@@ -12,11 +12,12 @@ from replay_buffer import ReplayBuffer
 from state import State
 from surrogate import Surrogate
 from arguments import *
+import torch.nn.functional as F
 
 
 class DQN_AGENT:
     def __init__(self, surrogate: Surrogate, replay_memory: ReplayBuffer, batch_size=32, learning_rate=0.001,
-                 epsilon=0.1, gamma=0.99):
+                 epsilon=0.1, gamma=0.99, T=10):
         """
         :param surrogate: surrogate model ---> for cal reward
         :param replay_memory: experience replay buffer --> for random sample
@@ -24,6 +25,7 @@ class DQN_AGENT:
         :param epsilon: for epsilon-greedy algorithm
         :param batch_size: batch size
         :param gamma: the discount factor
+        :param T: the update frequence for target network
         :return: None
         """
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -33,7 +35,9 @@ class DQN_AGENT:
         self.replay_memory = replay_memory
         self.batch_size = batch_size
         self.learning_rate = learning_rate
+        self.training_epoch = 0
         self.epsilon = epsilon
+        self.T = 10
         self.__policy_network = DQNModel(INPUT_DIM, OUTPUT_DIM).to(self.device)
         self.__target_network = DQNModel(INPUT_DIM, OUTPUT_DIM).to(self.device)
         # During initialization, the parameters of the target network are equal to the parameters of the Q network
@@ -69,15 +73,15 @@ class DQN_AGENT:
             action = current_state.select_action_by_idx(action_index)
             return action
 
-    def train(self, training_epochs):
+    def train(self, training_epochs, log_interval=1000):
         """
         Train the model and calculate the loss and Q value
         :param training_epochs
-        :return:
+        :return: None
         """
         # if a pre-trainned model does not exists
-        for _ in range(training_epochs):
-            # self.__training_epoch += 1
+        for epoch in range(training_epochs):
+            self.training_epoch += 1
             # evaluation mode for target network
             self.__target_network.eval()
             # training mode for policy network
@@ -99,12 +103,59 @@ class DQN_AGENT:
                 '''
                     Calculate the loss and Q values
                 '''
-                # loss, total_q = self.experience_replay()
+                loss, total_q = self.experience_replay()
+            if (self.training_epoch) % log_interval == 0:
+                print('rl training epoch: {}, loss: {}, total_q: {}'.format(self.training_epoch, loss, total_q))
+            # update TD difference network & policy network evaluation
+            if self.training_epoch % self.T == 0:
+                # memorize learned knowledge
+                self.__target_network.load_state_dict(self.__policy_network.state_dict())
 
     def experience_replay(self):
-        state, action, reward, next_state = self.replay_memory.sample(self.batch_size)
-        # sample_batch = self.replay_memory.sample(self.__sample_batch_size)
-        # print(state)
-        # print("=========================")
-        # print(action)
-        return 1, 2
+
+        states, actions, delayed_rewards, next_states = self.replay_memory.sample(self.batch_size)
+
+        states_counts = [state.get_episode_count() for state in states]
+        action_idx = torch.tensor(
+            [self.get_action_index(actions[i], states_counts[i]) for i in range(len(actions))]).view(-1, 1).to(device)
+        state_feature_batch = torch.FloatTensor([state.get_feature() for state in states]).to(device)
+        delayed_reward_batch = torch.FloatTensor(
+            [[torch.tensor(delayed_reward).unsqueeze(dim=0).unsqueeze(dim=0)] for delayed_reward in
+             delayed_rewards]).to(device)
+        next_state_feature_batch = torch.FloatTensor([state.get_feature() for state in next_states]).to(device)
+        # current result --- policy network
+        curr_q = self.__policy_network(state_feature_batch).gather(1, action_idx)
+        # next result --- target network
+
+        non_final_mask = torch.tensor([not state.is_end_state() for state in next_states]).float().unsqueeze(1).to(
+            device)
+
+        next_q = self.__target_network(next_state_feature_batch)
+        next_q = next_q * non_final_mask
+        max_next_q = torch.max(next_q, 1)[0].view(-1, 1)
+        # compute expected state-action values
+        expected_q = max_next_q * self.gamma + delayed_reward_batch
+        # compute loss
+        loss = F.smooth_l1_loss(curr_q, expected_q)
+
+        self.optimizer.zero_grad()
+        # DQN network optimization
+        loss.backward()
+        self.optimizer.step()
+
+        # assemble criterions and return
+        total_q = None
+        with torch.no_grad():
+            total_q = torch.mean(curr_q).detach()
+
+        return loss.item(), total_q.item()
+
+    # according to the count to get corresponding action index
+    def get_action_index(self, action, count):
+        if count == 0:
+            idx = np.searchsorted(ACTIONS_HAMA, action)
+        elif count == 1:
+            idx = np.searchsorted(ACTIONS_GELMA, action)
+        elif count == 2:
+            idx = np.searchsorted(ACTIONS_SHEAR_RATE, action)
+        return idx

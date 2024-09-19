@@ -45,6 +45,10 @@ class State:
         feature = deepcopy(self.content)
         feature.append(self.episode_count)
         return feature
+    
+    # check if end state
+    def is_end_state(self):
+        return self.episode_count == self.episode_len - 1
 
     def generate_random_action(self):
         """
