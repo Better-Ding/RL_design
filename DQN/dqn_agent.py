@@ -4,9 +4,12 @@
 @Date    ：2024/9/2 16:31 
 @Desc    To design a DQN architecture
 """
+from typing import List
+
+import math
 import numpy as np
 import torch
-
+import random
 from nn_model import DQNModel
 from replay_buffer import ReplayBuffer
 from state import State
@@ -16,8 +19,8 @@ import torch.nn.functional as F
 
 
 class DQN_AGENT:
-    def __init__(self, surrogate: Surrogate, replay_memory: ReplayBuffer, batch_size=32, learning_rate=0.001,
-                 epsilon=0.1, gamma=0.99, T=10):
+    def __init__(self, surrogate: Surrogate, replay_memory: ReplayBuffer, batch_size=32, learning_rate=0.0005,
+                 epsilon=0.1, gamma=0.80, T=10):
         """
         :param surrogate: surrogate model ---> for cal reward
         :param replay_memory: experience replay buffer --> for random sample
@@ -28,8 +31,6 @@ class DQN_AGENT:
         :param T: the update frequence for target network
         :return: None
         """
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        # print(self.device)
         self.gamma = gamma
         self.surrogate = surrogate
         self.replay_memory = replay_memory
@@ -37,15 +38,20 @@ class DQN_AGENT:
         self.learning_rate = learning_rate
         self.training_epoch = 0
         self.epsilon = epsilon
-        self.T = 10
-        self.__policy_network = DQNModel(INPUT_DIM, OUTPUT_DIM).to(self.device)
-        self.__target_network = DQNModel(INPUT_DIM, OUTPUT_DIM).to(self.device)
+        self.T = T
+        self.__policy_network = DQNModel(INPUT_DIM, OUTPUT_DIM).to(device)
+        self.__target_network = DQNModel(INPUT_DIM, OUTPUT_DIM).to(device)
         # During initialization, the parameters of the target network are equal to the parameters of the Q network
         for param, target_param in zip(self.__policy_network.parameters(), self.__target_network.parameters()):
             target_param.data.copy_(param)
         self.optimizer = torch.optim.Adam(self.__policy_network.parameters(), lr=learning_rate)
         # decide when to update target model
         self.update_count = 0
+        # for epsilon-greedy algorithm
+        self.epsilon_end = 0.1
+        self.epsilon_start = 0.8
+        self.training_step = 0
+        self.epsilon_decay_coef = 10000
 
     def select_action(self, current_state, epsilon=0.0):
         """
@@ -54,7 +60,11 @@ class DQN_AGENT:
         :param epsilon: to decide strategy
         :return: actions according to current state--> float
         """
-        if np.random.rand() < epsilon:
+        if not epsilon:
+            epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * \
+                      math.exp(-1. * self.training_step / self.epsilon_decay_coef)
+        if random.random() < epsilon:
+            # select a random action with epsilon_tmp probability
             return current_state.generate_random_action()
         else:
             # greedy selection
@@ -76,6 +86,7 @@ class DQN_AGENT:
     def train(self, training_epochs, log_interval=1000):
         """
         Train the model and calculate the loss and Q value
+        :param log_interval: to display the training status
         :param training_epochs
         :return: None
         """
@@ -104,7 +115,7 @@ class DQN_AGENT:
                     Calculate the loss and Q values
                 '''
                 loss, total_q = self.experience_replay()
-            if (self.training_epoch) % log_interval == 0:
+            if self.training_epoch % 10 == 0:
                 print('rl training epoch: {}, loss: {}, total_q: {}'.format(self.training_epoch, loss, total_q))
             # update TD difference network & policy network evaluation
             if self.training_epoch % self.T == 0:
@@ -112,7 +123,10 @@ class DQN_AGENT:
                 self.__target_network.load_state_dict(self.__policy_network.state_dict())
 
     def experience_replay(self):
-
+        """
+        calculate policy network and Target network Q value and get loss
+        :return: loss and q values
+        """
         states, actions, delayed_rewards, next_states = self.replay_memory.sample(self.batch_size)
 
         states_counts = [state.get_episode_count() for state in states]
@@ -126,21 +140,21 @@ class DQN_AGENT:
         # current result --- policy network
         curr_q = self.__policy_network(state_feature_batch).gather(1, action_idx)
         # next result --- target network
-
         non_final_mask = torch.tensor([not state.is_end_state() for state in next_states]).float().unsqueeze(1).to(
             device)
-
         next_q = self.__target_network(next_state_feature_batch)
         next_q = next_q * non_final_mask
         max_next_q = torch.max(next_q, 1)[0].view(-1, 1)
         # compute expected state-action values
         expected_q = max_next_q * self.gamma + delayed_reward_batch
         # compute loss
-        loss = F.smooth_l1_loss(curr_q, expected_q)
-
+        # loss = F.smooth_l1_loss(curr_q, expected_q)
+        loss = F.mse_loss(curr_q, expected_q)
         self.optimizer.zero_grad()
         # DQN network optimization
         loss.backward()
+        for param in self.__policy_network.parameters():
+            param.grad.data.clamp_(min=-1., max=1.)
         self.optimizer.step()
 
         # assemble criterions and return
@@ -159,3 +173,23 @@ class DQN_AGENT:
         elif count == 2:
             idx = np.searchsorted(ACTIONS_SHEAR_RATE, action)
         return idx
+
+    def propose_next_experiment(self, epsilon: float = 0.0) -> List[float]:
+        return self.evaluate_knowledge(epsilon)[-1][0]
+
+    def evaluate_knowledge(self, epsilon: float = None):
+        # prepare a blank kirigami structure
+        current_state = State(if_init=True)
+        action = None
+        state_action_seq = list()
+        # apply action sequence based on greedy policy
+        for _ in range(3):
+            # Change from greedy select -> epsilon select. --20220827
+            # action = self.greedy_select(current_state)
+            action = self.select_action(current_state=current_state, epsilon=epsilon)
+            next_state = State(previous_state=current_state, action=action)
+            state_action_seq.append([current_state.get_ex_content(), action])
+            current_state = next_state
+
+        state_action_seq.append([current_state.get_ex_content(), None])
+        return state_action_seq

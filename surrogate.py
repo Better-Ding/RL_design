@@ -14,7 +14,6 @@ import numpy as np
 import pandas as pd
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import ConstantKernel, RBF, WhiteKernel
-
 from arguments import *
 from state import State
 
@@ -23,7 +22,7 @@ GP_MODEL_PATH = './models/gp_model.pk'
 
 
 class Surrogate:
-    def __init__(self, target):
+    def __init__(self, target=100):
         # prepare buffers
         self.read_data()
         # instantiate GPR model
@@ -70,16 +69,14 @@ class Surrogate:
         @Note:      r: (mean + k * std)
     '''
     def pack_transition(self, current_state: State, action: float, next_state: State) -> Transition:
-
-        next_state_pred_mean, next_state_pred_std = self.predict(next_state.get_ex_content())
-        current_state_pred_mean, current_state_pred_std = self.predict(current_state.get_ex_content())
-        k = 0
-        delayed_reward = (
-            (next_state_pred_mean - k * next_state_pred_std) -
-            (current_state_pred_mean - k * current_state_pred_std)
-        )
-        # if exceed 150, reduce the reward
-        if next_state_pred_mean > self.target:
-            delayed_reward -= (next_state_pred_mean - self.target)
+        current_state_feature = current_state.get_ex_content()
+        current_state_pred_mean, current_state_pred_std = self.predict(current_state_feature)
+        next_state_feature = next_state.get_ex_content()
+        next_state_pred_mean, next_state_pred_std = self.predict(next_state_feature)
+        # delayed_reward
+        delayed_reward = next_state_pred_mean - current_state_pred_mean
+        # # if exceed 150, reduce the reward
+        # if next_state_pred_mean > self.target:
+        #     delayed_reward -= (next_state_pred_mean - self.target)
 
         return Transition(current_state, action, delayed_reward, next_state)

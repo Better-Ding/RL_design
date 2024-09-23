@@ -17,7 +17,7 @@ class State:
         """
         if if_init:
             # [HAMA,GelMA,ShearRate]
-            self.content = [0, 0, 0]
+            self.content = [0.5, 7.5, 1]
             self.episode_len = episode_len
             self.episode_count = 0
         else:
