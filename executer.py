@@ -8,7 +8,8 @@ from dqn_agent import DQN_AGENT
 from replay_buffer import ReplayBuffer
 from surrogate import Surrogate
 import sys
-from tqdm import * 
+from tqdm import *
+
 
 def execute():
     # -------------------------------------------------------------------------
@@ -39,6 +40,12 @@ def execute():
         # set need_training explicitly
         # train DQN with desired epochs
         agnt.train(training_epochs=training_epochs // proposition_logs)
+        # Knowledge evaluation
+        print('Knowledge evaluation:')
+        proposed_composition = agnt.propose_next_experiment()
+        pred_enthalpy = surrogate.predict(proposed_composition)
+        print('Proposed experiments [HAMA, GELMA, Shear_Rate]: {} with predicted enthalpy of {}'. \
+              format(proposed_composition, pred_enthalpy))
 
 
 if __name__ == '__main__':
