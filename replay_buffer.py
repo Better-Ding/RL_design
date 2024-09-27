@@ -54,7 +54,7 @@ class ReplayBuffer:
         with open(memory_save_path, 'wb') as f:
             pickle.dump(self.buffer, f)
 
-    def init_memory_buffer(self, resume_memory_buffer=True):
+    def init_memory_buffer(self, resume_memory_buffer=False):
         """
             Init replay_memory_buffer with few experiences.
             :param resume_memory_buffer: if True load previous buffer, else recreate new one

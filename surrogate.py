@@ -17,12 +17,12 @@ from sklearn.gaussian_process.kernels import ConstantKernel, RBF, WhiteKernel
 from arguments import *
 from state import State
 
-FEATURE_VISCOSITY_PATH = 'data/data-modi-vistr.xlsx'
+FEATURE_VISCOSITY_PATH = '../data/data-modi-vistr.xlsx'
 GP_MODEL_PATH = './models/gp_model.pk'
 
 
 class Surrogate:
-    def __init__(self, target=100):
+    def __init__(self, target=2):
         # prepare buffers
         self.read_data()
         # instantiate GPR model
@@ -74,8 +74,8 @@ class Surrogate:
         next_state_feature = next_state.get_ex_content()
         next_state_pred_mean, next_state_pred_std = self.predict(next_state_feature)
         # delayed_reward
-        delayed_reward = next_state_pred_mean - current_state_pred_mean
-        # # if exceed 150, reduce the reward
+        # delayed_reward = next_state_pred_mean - current_state_pred_mean
+        delayed_reward = -abs(self.target - next_state_pred_mean)
         # if next_state_pred_mean > self.target:
         #     delayed_reward -= (next_state_pred_mean - self.target)
 
