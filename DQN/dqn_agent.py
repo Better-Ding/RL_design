@@ -83,7 +83,7 @@ class DQN_AGENT:
             action = current_state.select_action_by_idx(action_index)
             return action
 
-    def train(self, training_epochs, log_interval=1000):
+    def train(self, training_epochs, log_interval=300):
         """
         Train the model and calculate the loss and Q value
         :param log_interval: to display the training status
@@ -105,7 +105,7 @@ class DQN_AGENT:
                 '''
                     Prepare a new transition to shove into memory buffer.
                 '''
-                # self.__training_step += 1
+                self.training_step += 1
                 action = self.select_action(current_state)
                 next_state = State(previous_state=current_state, action=action)
                 trainsition = self.surrogate.pack_transition(current_state, action, next_state)
@@ -115,8 +115,9 @@ class DQN_AGENT:
                     Calculate the loss and Q values
                 '''
                 loss, total_q = self.experience_replay()
-            if self.training_epoch % 10 == 0:
-                print('rl training epoch: {}, loss: {}, total_q: {}'.format(self.training_epoch, loss, total_q))
+            if self.training_epoch % log_interval == 0:
+                print('\n rl training epoch: {}, loss: {}, total_q: {}'.format(self.training_epoch, loss, total_q))
+                print('-------------------------------------------------------------------------------------------')
             # update TD difference network & policy network evaluation
             if self.training_epoch % self.T == 0:
                 # memorize learned knowledge
@@ -145,6 +146,7 @@ class DQN_AGENT:
         next_q = self.__target_network(next_state_feature_batch)
         next_q = next_q * non_final_mask
         max_next_q = torch.max(next_q, 1)[0].view(-1, 1)
+
         # compute expected state-action values
         expected_q = max_next_q * self.gamma + delayed_reward_batch
         # compute loss

@@ -10,14 +10,13 @@ from surrogate import Surrogate
 import sys
 from tqdm import *
 
-
 def execute():
     # -------------------------------------------------------------------------
     # parameters setup
-    replay_memory_capacity = 5000
+    replay_memory_capacity = 3000
     training_epochs = 30000
     batch_size = 64
-    target = 150
+    target = 2
     print('Repaly memory capacity: {}'.format(replay_memory_capacity))
     print('training epochs: {}'.format(training_epochs))
 
@@ -39,13 +38,14 @@ def execute():
     for _ in tqdm(range(proposition_logs), file=sys.stdout):
         # set need_training explicitly
         # train DQN with desired epochs
-        agnt.train(training_epochs=1000)
+        agnt.train(training_epochs=training_epochs // proposition_logs)
         # Knowledge evaluation
-        # print('Knowledge evaluation:')
-        # proposed_composition = agnt.propose_next_experiment()
-        # pred_enthalpy = surrogate.predict(proposed_composition)
-        # print('Proposed experiments [HAMA, GELMA, Shear_Rate]: {} with predicted viscosity of {}'. \
-        #       format(proposed_composition, 10**pred_enthalpy[0]))
+        print('Knowledge evaluation:')
+        proposed_composition = agnt.propose_next_experiment()
+        pred_enthalpy = surrogate.predict(proposed_composition)
+        print('Proposed experiments [HAMA, GELMA, Shear_Rate]: {} with predicted viscosity of {}'. \
+              format(proposed_composition, 10**pred_enthalpy[0]))
+        print('----------------------------------------------------------------------------------------')
 
 
 if __name__ == '__main__':
