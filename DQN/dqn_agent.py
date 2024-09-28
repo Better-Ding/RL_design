@@ -4,12 +4,16 @@
 @Date    ：2024/9/2 16:31 
 @Desc    To design a DQN architecture
 """
+import pickle
 from typing import List
 
 import math
 import numpy as np
 import torch
 import random
+
+from matplotlib import pyplot as plt
+
 from nn_model import DQNModel
 from replay_buffer import ReplayBuffer
 from state import State
@@ -52,8 +56,9 @@ class DQN_AGENT:
         self.epsilon_start = 0.8
         self.training_step = 0
         self.epsilon_decay_coef = 10000
+        self.__training_indicators = list()
 
-    def select_action(self, current_state, epsilon=0.0):
+    def select_action(self, current_state, epsilon=0.1):
         """
         Select actions according to epsilon-greedy algorithm
         :param current_state: State
@@ -117,7 +122,9 @@ class DQN_AGENT:
                 loss, total_q = self.experience_replay()
             if self.training_epoch % log_interval == 0:
                 print('\n rl training epoch: {}, loss: {}, total_q: {}'.format(self.training_epoch, loss, total_q))
-                print('-------------------------------------------------------------------------------------------')
+
+            self.__training_indicators.append(TrainingIndicator(self.training_epoch, loss, total_q))
+
             # update TD difference network & policy network evaluation
             if self.training_epoch % self.T == 0:
                 # memorize learned knowledge
@@ -179,6 +186,10 @@ class DQN_AGENT:
     def propose_next_experiment(self, epsilon: float = 0.0) -> List[float]:
         return self.evaluate_knowledge(epsilon)[-1][0]
 
+    def save_training_indicators(self, training_indicator_path: str = DQL_TRAINING_INDICATOR_PATH):
+        with open(training_indicator_path, 'wb') as f:
+            pickle.dump(self.__training_indicators, f)
+
     def evaluate_knowledge(self, epsilon: float = None):
         # prepare a blank kirigami structure
         current_state = State(if_init=True)
@@ -195,3 +206,6 @@ class DQN_AGENT:
 
         state_action_seq.append([current_state.get_ex_content(), None])
         return state_action_seq
+
+    def save_knowledge(self, knowledge_save_path: str = DQL_AGENT_PATH):
+        torch.save(self.__policy_network.state_dict(), knowledge_save_path)
