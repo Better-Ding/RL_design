@@ -9,6 +9,9 @@ from replay_buffer import ReplayBuffer
 from surrogate import Surrogate
 import sys
 from tqdm import *
+from arguments import GP_MODEL_PATH, DQL_AGENT_PATH
+from datetime import datetime
+
 
 def execute():
     # -------------------------------------------------------------------------
@@ -39,13 +42,30 @@ def execute():
         # set need_training explicitly
         # train DQN with desired epochs
         agnt.train(training_epochs=training_epochs // proposition_logs)
+
         # Knowledge evaluation
         print('Knowledge evaluation:')
         proposed_composition = agnt.propose_next_experiment()
         pred_enthalpy = surrogate.predict(proposed_composition)
         print('Proposed experiments [HAMA, GELMA, Shear_Rate]: {} with predicted viscosity of {}'. \
-              format(proposed_composition, 10**pred_enthalpy[0]))
+              format(proposed_composition, 10 ** pred_enthalpy[0]))
         print('----------------------------------------------------------------------------------------')
+        proposition_log_res.append((proposed_composition, pred_enthalpy))
+    print("Finish training:")
+    # proposition_log_res = proposition_log_res.sort(key=lambda x: x[1][0], reverse=True)
+    proposition_log_res = sorted(proposition_log_res, key=lambda x: x[1][0], reverse=True)
+    top_ten = proposition_log_res[:10]
+    now = datetime.now()
+
+    with open('proposed compositions-{}-{}-{}.txt'.format(now.year, now.month, now.day), 'wt') as f:
+        for proposed_composition, pred_enthalpy in top_ten:
+            f.write('Proposed composition [Ti, Ni, Cu, Hf, Zr]: {} with predicted enthalpy of {}\n'. \
+                    format(proposed_composition, pred_enthalpy))
+
+    # save trained DQN model
+    agnt.save_knowledge(DQL_AGENT_PATH)
+    agnt.save_training_indicators()
+    surrogate.save_gp_model(GP_MODEL_PATH)
 
 
 if __name__ == '__main__':
