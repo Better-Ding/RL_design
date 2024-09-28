@@ -11,13 +11,16 @@ import torch
 
 # General data structure definition
 Transition = namedtuple('Transition', ('current_state', 'action', 'delayed_reward', 'next_state'))
-
+TrainingIndicator = namedtuple('TrainingIndicator', ('epoch', 'loss', 'total_q'))
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+DQL_AGENT_PATH = 'dql_agent.pt'
+DQL_TRAINING_INDICATOR_PATH = 'rl_agent_training_indicators.pk'
+GP_MODEL_PATH = 'gp_model.pk'
 
 """
 state.py
 """
-
 # HAMA ---> 0.25 - 1.5
 # GelMA ---> 5 - 20
 # ShearRate(after mapping) ---> 1 - 25
